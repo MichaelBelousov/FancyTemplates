@@ -14,6 +14,7 @@ constexpr const unsigned WORD_SIZE = 32;
 constexpr const unsigned LOG_WORD_SIZE = 5;
 constexpr const unsigned WORD_MASK = 0b11111;
 constexpr const unsigned WORD_REMAINDER_BITS = 0b11;
+constexpr const unsigned BYTES_PER_WORD = WORD_SIZE/BYTE_SIZE;
 
 using Word = unsigned;
 using byte = unsigned char;
@@ -22,9 +23,9 @@ using std::size_t;
 /////////////// BitArray (similar to std::bitset) ////
 
 constexpr Word word_ceil (Word n) {
-    return (((n & WORD_REMAINDER_BITS) > 0) ?
-                    WORD_SIZE/BYTE_SIZE :
-                    0)
+    return (((n & WORD_REMAINDER_BITS) > 0)
+                    ? BYTES_PER_WORD
+                    : 0)
             + (n & ~WORD_REMAINDER_BITS);
 }
 static_assert(word_ceil(3) == 4, "word ceil");
@@ -38,8 +39,8 @@ public:
     constexpr static const size_t len_in_bits = size;
     constexpr static const size_t len_in_bytes = ((size & BYTE_MASK) > 0) + (size >> LOG_BYTE_SIZE);
     constexpr static const size_t len_in_words = ((size & WORD_MASK) > 0) + (size >> LOG_WORD_SIZE);
-private:
-    std::array<byte, 4*len_in_words> data;
+//private:
+    std::array<byte, BYTES_PER_WORD*len_in_words> data;
 public:
     //// public methods
     void reset(size_t i) noexcept {
@@ -78,13 +79,18 @@ private:
         bool operator!= (const BaseBitIterator& other) { return !(*this == other); }
         BaseBitIterator operator++ () { auto r = *this; ++index; return r; }
         BaseBitIterator& operator++ (int) { ++index; return *this; }
+    private:
+        ValueRef deref_operator () {
+            return this->bit_array[this->index];
+        }
+    public:
         template <typename _ = ValueRef>
         std::enable_if_t<!const_, _> operator* () {
-            return this->bit_array[this->index];
+            return this->deref_operator();
         }
         template <typename _ = ValueRef>
         std::enable_if_t<const_, _> operator* () const {
-            return this->bit_array[this->index];
+            return const_cast<BaseBitIterator<const_>*>(this)->deref_operator();
         }
     };
     using BitIterator = BaseBitIterator<false>;
@@ -101,13 +107,18 @@ public:
 
     auto beginBytes() { return data.begin(); }
     auto beginBytes() const { return data.begin(); }
-    auto endBytes() { return data.end(); }
-    auto endBytes() const { return data.end(); }
+    // XXX: hide the remainder of the last word
+    auto endBytes() { return data.end() - (len_in_words*BYTES_PER_WORD/len_in_bytes); }
+    auto endBytes() const { return data.end() - (len_in_words*BYTES_PER_WORD/len_in_bytes); }
 
-    Word* beginWords() { return static_cast<Word*>(&data[0]); }
-    const Word* beginWords() const { return static_cast<Word*>(&data[0]); }
-    Word* endWords() { return static_cast<Word*>(&data[len_in_words]); }
-    const Word* endWords() const { return static_cast<Word*>(&data[len_in_words]); }
+    Word* beginWords() { return reinterpret_cast<Word*>(&data[0]); }
+    const Word* beginWords() const { return reinterpret_cast<const Word*>(&data[0]); }
+    Word* endWords() {
+        return reinterpret_cast<Word*>(&data[BYTES_PER_WORD*len_in_words]);
+    }
+    const Word* endWords() const {
+        return reinterpret_cast<const Word*>(&data[BYTES_PER_WORD*len_in_words]);
+    }
 
     //// non-bitset public methods
     // TODO: specialize std::find
@@ -234,6 +245,19 @@ public:
 int main() {
     BitArray bitarr = (short) 0b1000000010000000;
 
-    using namespace std;
+    using std::cout, std::endl;
     cout << bitarr << endl;
+
+    for (auto itr = bitarr.beginBytes(); itr != bitarr.endBytes(); ++itr)
+        cout << (int) *itr << " ";
+    cout << endl;
+
+    unsigned me = *bitarr.beginWords();
+    cout << me << endl;
+    byte* mes = reinterpret_cast<byte*>(&me);
+    cout << (int) mes[0] << " " << (int) mes[1] << " " << (int) mes[2] << " " << (int) mes[3] << endl;
+
+    for (auto itr = bitarr.beginWords(); itr != bitarr.endWords(); ++itr)
+        cout << *itr << " ";
+    cout << endl;
 }
