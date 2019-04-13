@@ -200,15 +200,30 @@ std::ostream& operator<< (std::ostream& os, const BitArray<size>& bitarr) {
 //flyweight element?
 template<typename FlyweightType, unsigned pool_size>
 class PooledFlyweightUser {
+    //// Construction
+    static BitArray<pool_size> init_alloc_states() {
+        BitArray<pool_size> result;
+        for (auto itr = result.beginWords(); itr != result.endWords(); ++itr)
+            *itr = 0xffffffff;
+        return result;
+    }
+    constexpr static const auto no_cell = nullptr;
     //// Class Variables
 private:
-    static BitArray<pool_size> alloc_states;
+    static BitArray<pool_size> alloc_states = init_alloc_states();
     //TODO: prevent construction at allocation time
     static std::array<FlyweightType, pool_size> pool;
-    static void* findFreeCell() {
-        for (int i = 0; i < pool.size(); ++i)
-            const auto& bit = alloc_states[i];
-        return nullptr;
+
+    /// Internal routines
+    static void* tryFindFreeCell() {
+        auto bit_index = alloc_states.findFirstSetBit();
+        if (bit_index == alloc_states.len_in_bits)
+            return nullptr;
+        else
+            return &pool[bit_index];
+    }
+    static bool is_in_pool(PooledFlyweightUser* ptr) {
+        return ptr >= &pool[0] && ptr < &pool[pool_size];
     }
 
     //// Types
@@ -225,20 +240,22 @@ protected:
         void decRef() { --refcount; /* if (refcount==0) delete this*/ };
         //TODO:
         void* operator new(size_t size) {
-            auto cell = findFreeCell();
-            return ::new(size) RefCountedFlyweightType;
+            auto cell = tryFindFreeCell();
+            if (cell == no_cell)
+                return ::new(size) RefCountedFlyweightType;
+            else {
+                alloc_states[cell] = 1;
+                return cell;
+            }
         }
         void operator delete(void* ptr) {
             auto* _ptr = reinterpret_cast<RefCountedFlyweightType*>(ptr);
-            ::delete _ptr;
+            if (!is_in_pool(ptr))
+                ::delete _ptr;
         }
     };
     // XXX: make reference? make nonconst if changes?
     const RefCountedFlyweightType* const flyweight;
-
-    //// Construction
-public:
-
 };
 
 
@@ -253,10 +270,5 @@ int main() {
 
     using std::cout, std::endl;
 
-    for (auto itr = bitarr.beginBytes(); itr != bitarr.endBytes(); ++itr)
-        cout << (unsigned) *itr << " ";
-    cout << endl;
-
     cout << bitarr << endl;
-    cout << bitarr.findFirstSetBit() << endl;
 }
