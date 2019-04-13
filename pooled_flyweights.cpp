@@ -16,7 +16,7 @@ constexpr const unsigned WORD_MASK = 0b11111;
 constexpr const unsigned WORD_REMAINDER_BITS = 0b11;
 constexpr const unsigned BYTES_PER_WORD = WORD_SIZE/BYTE_SIZE;
 
-using Word = unsigned;
+using Word = long unsigned;
 using byte = unsigned char;
 using std::size_t;
 
@@ -107,10 +107,11 @@ public:
 
     auto beginBytes() { return data.begin(); }
     auto beginBytes() const { return data.begin(); }
-    // XXX: hide the remainder of the last word
     auto endBytes() { return data.end() - (len_in_words*BYTES_PER_WORD/len_in_bytes); }
     auto endBytes() const { return data.end() - (len_in_words*BYTES_PER_WORD/len_in_bytes); }
 
+    // TODO: replace with an iter_words function returning a private type with the
+    // ranged for loop interface implemented
     Word* beginWords() { return reinterpret_cast<Word*>(&data[0]); }
     const Word* beginWords() const { return reinterpret_cast<const Word*>(&data[0]); }
     Word* endWords() {
@@ -247,17 +248,4 @@ int main() {
 
     using std::cout, std::endl;
     cout << bitarr << endl;
-
-    for (auto itr = bitarr.beginBytes(); itr != bitarr.endBytes(); ++itr)
-        cout << (int) *itr << " ";
-    cout << endl;
-
-    unsigned me = *bitarr.beginWords();
-    cout << me << endl;
-    byte* mes = reinterpret_cast<byte*>(&me);
-    cout << (int) mes[0] << " " << (int) mes[1] << " " << (int) mes[2] << " " << (int) mes[3] << endl;
-
-    for (auto itr = bitarr.beginWords(); itr != bitarr.endWords(); ++itr)
-        cout << *itr << " ";
-    cout << endl;
 }
