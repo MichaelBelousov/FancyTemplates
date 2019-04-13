@@ -247,9 +247,16 @@ public:
 
 int main() {
     //BitArray bitarr = (short) 0b1000000010000000U;
-    BitArray bitarr = (short) 0b0010000010000000U;
+    //BitArray bitarr = (short) 0b0010000010000000U;
+    byte bytes[] = {0b00100000U, 0b10000000U};
+    BitArray bitarr = bytes;
 
     using std::cout, std::endl;
+
+    for (auto itr = bitarr.beginBytes(); itr != bitarr.endBytes(); ++itr)
+        cout << (unsigned) *itr << " ";
+    cout << endl;
+
     cout << bitarr << endl;
     cout << bitarr.findFirstSetBit() << endl;
 }
