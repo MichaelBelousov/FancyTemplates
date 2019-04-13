@@ -112,6 +112,7 @@ public:
 
     // TODO: replace with an iter_words function returning a private type with the
     // ranged for loop interface implemented
+public:
     Word* beginWords() { return reinterpret_cast<Word*>(&data[0]); }
     const Word* beginWords() const { return reinterpret_cast<const Word*>(&data[0]); }
     Word* endWords() {
@@ -122,19 +123,20 @@ public:
     }
 
     //// non-bitset public methods
+
     // TODO: specialize std::find
     // find the first 1 in the collection of bits
     size_t findFirstSetBit() const {
-        return 0;
-        /*
-        auto findWord = [](const BitArray& b) {
-        }
-        auto findByte = [](const BitArray& b) {
-        }
-        auto findBit = [](const BitArray& b) {
-        }
-        auto word = findWord(*this);
-        */
+        size_t result;
+        const auto foundWordItr = std::find_if(beginWords(), endWords(),
+                                              [](auto w){ return w != 0; });
+        if (foundWordItr == endWords())
+            return size;
+        const Word& foundWord = *foundWordItr;
+        // TODO: use macro for non-gcc/clang implementation
+        const int num_leading_zeros = __builtin_clz(__builtin_bswap32(foundWord));
+        result = num_leading_zeros;
+        return result;
     }
     //// implement iterator in words, bytes, and the default, bits
     //// BitRef Impl
@@ -244,8 +246,10 @@ public:
 
 
 int main() {
-    BitArray bitarr = (short) 0b1000000010000000;
+    //BitArray bitarr = (short) 0b1000000010000000U;
+    BitArray bitarr = (short) 0b0010000010000000U;
 
     using std::cout, std::endl;
     cout << bitarr << endl;
+    cout << bitarr.findFirstSetBit() << endl;
 }
