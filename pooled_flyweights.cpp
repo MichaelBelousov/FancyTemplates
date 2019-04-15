@@ -163,13 +163,17 @@ private:
     };
     //// construction
 public:
+    BitArray() : data() {}
+
     template<typename T>
     BitArray(T&& t) : data(byte_array_from_obj(t)) {}
+
     template<typename T>
     BitArray& operator= (T&& t) {
         data = byte_array_from_obj(t);
         return *this;
     }
+
     template<typename T>
     static auto byte_array_from_obj(T&& obj) {
         std::array<byte,word_ceil(sizeof(obj))> result;
@@ -198,8 +202,11 @@ std::ostream& operator<< (std::ostream& os, const BitArray<size>& bitarr) {
 
 //maybe one would inherit from this to gain the protected
 //flyweight element?
-template<typename FlyweightType, unsigned pool_size>
+template<typename FlyweightType, size_t pool_size>
 class PooledFlyweightUser {
+protected:
+    class RefCountedFlyweightType;
+private:
     //// Construction
     static BitArray<pool_size> init_alloc_states() {
         BitArray<pool_size> result;
@@ -207,68 +214,88 @@ class PooledFlyweightUser {
             *itr = 0xffffffff;
         return result;
     }
-    constexpr static const auto no_cell = nullptr;
+    constexpr static const auto no_cell = pool_size;
+
     //// Class Variables
-private:
-    static BitArray<pool_size> alloc_states = init_alloc_states();
+    static BitArray<pool_size> alloc_states;
     //TODO: prevent construction at allocation time
-    static std::array<FlyweightType, pool_size> pool;
+    static std::array<RefCountedFlyweightType, pool_size> pool;
 
     /// Internal routines
-    static void* tryFindFreeCell() {
+    static size_t tryFindFreeCell() {
         auto bit_index = alloc_states.findFirstSetBit();
         if (bit_index == alloc_states.len_in_bits)
-            return nullptr;
+            return no_cell;
         else
-            return &pool[bit_index];
+            return bit_index;
     }
-    static bool is_in_pool(PooledFlyweightUser* ptr) {
-        return ptr >= &pool[0] && ptr < &pool[pool_size];
-    }
-
     //// Types
 protected:
     class RefCountedFlyweightType : public FlyweightType {
         unsigned refcount;
     public:
-        RefCountedFlyweightType() : refcount(1) {}
-        bool is_pooled() const {
-            //TODO: check if this between begin() and end()
-            return false;
+        // TODO: forward all constructor calls to base constructor
+        RefCountedFlyweightType() : refcount(1), FlyweightType() {}
+
+        static bool is_pooled(RefCountedFlyweightType* ptr) {
+            return ptr >= &pool[0] && ptr < &pool[pool_size];
         }
         void incRef() { ++refcount; };
         void decRef() { --refcount; /* if (refcount==0) delete this*/ };
-        //TODO:
         void* operator new(size_t size) {
+            // TODO: static_assert that the flyweight type is not a derived/extended type
+            // TODO: use hash table to implement hash equality testing for flyweight interning
             auto cell = tryFindFreeCell();
             if (cell == no_cell)
-                return ::new(size) RefCountedFlyweightType;
+                return ::new RefCountedFlyweightType;
             else {
-                alloc_states[cell] = 1;
-                return cell;
+                alloc_states[cell] = 0;
+                return &pool[cell];
             }
         }
         void operator delete(void* ptr) {
             auto* _ptr = reinterpret_cast<RefCountedFlyweightType*>(ptr);
-            if (!is_in_pool(ptr))
+            if (!is_pooled(_ptr))
                 ::delete _ptr;
+            else
+                alloc_states[(_ptr - &pool[0])/sizeof(_ptr)] = 1;
         }
+        // TODO: add byte-wise equality operator implementation?
     };
-    // XXX: make reference? make nonconst if changes?
-    const RefCountedFlyweightType* const flyweight;
+
+    //// Data Members
+//protected:
+    const RefCountedFlyweightType& flyweight;
+
+    //// Construction
+    PooledFlyweightUser() : flyweight(*(new RefCountedFlyweightType)) {
+    }
 };
 
+template<typename T, size_t sz>
+BitArray<sz> PooledFlyweightUser<T,sz>::alloc_states =
+    PooledFlyweightUser<T,sz>::init_alloc_states();
+
+template<typename T, size_t sz>
+std::array<typename PooledFlyweightUser<T,sz>::RefCountedFlyweightType, sz> pool = 
+    std::array<typename PooledFlyweightUser<T,sz>::RefCountedFlyweightType, sz>();
 
 /////////////// Example ////
 
+enum TileType {forest, plains};
+
+struct ExampleFlyweight {
+    TileType tile_type = forest;
+    char production = 2;
+    char food = 3;
+};
+
+class ExampleUser : public PooledFlyweightUser<ExampleFlyweight, 100> {
+    char test = 'h';
+};
 
 int main() {
-    //BitArray bitarr = (short) 0b1000000010000000U;
-    //BitArray bitarr = (short) 0b0010000010000000U;
-    byte bytes[] = {0b00100000U, 0b10000000U};
-    BitArray bitarr = bytes;
-
-    using std::cout, std::endl;
-
-    cout << bitarr << endl;
+    ExampleUser example1;
+    ExampleUser example2;
+    ExampleUser example3;
 }
