@@ -98,7 +98,6 @@ private:
     using iterator = BitIterator;
     using const_iterator = ConstBitIterator;
 
-
 public:
     BitIterator begin() { return BitIterator(*this, 0); }
     BitIterator end() { return BitIterator(*this, len_in_bits); }
@@ -199,6 +198,10 @@ std::ostream& operator<< (std::ostream& os, const BitArray<size>& bitarr) {
 
 /////////////// Pooled Flyweight ////
 
+enum class AllocState : int {
+    ALLOCATED = 0,
+    FREE = 1
+};
 
 //maybe one would inherit from this to gain the protected
 //flyweight element?
@@ -249,7 +252,7 @@ protected:
             if (cell == no_cell)
                 return ::new RefCountedFlyweightType;
             else {
-                alloc_states[cell] = 0;
+                alloc_states[cell] = AllocState::ALLOCATED;
                 return &pool[cell];
             }
         }
@@ -258,7 +261,7 @@ protected:
             if (!is_pooled(_ptr))
                 ::delete _ptr;
             else
-                alloc_states[(_ptr - &pool[0])/sizeof(_ptr)] = 1;
+                alloc_states[(_ptr - &pool[0])/sizeof(_ptr)] = AllocState::FREE;
         }
         // TODO: add byte-wise equality operator implementation?
     };
@@ -295,7 +298,5 @@ class ExampleUser : public PooledFlyweightUser<ExampleFlyweight, 100> {
 };
 
 int main() {
-    ExampleUser example1;
-    ExampleUser example2;
-    ExampleUser example3;
+    BitArray b = 0b1110100111;
 }
