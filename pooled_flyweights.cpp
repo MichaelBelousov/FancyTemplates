@@ -278,7 +278,7 @@ BitArray<sz> PooledFlyweightUser<T,sz>::alloc_states =
 
 template<typename T, size_t sz>
 std::array<typename PooledFlyweightUser<T,sz>::RefCountedFlyweightType, sz>
-PooledFlyweightUser<T,sz>::pool; 
+PooledFlyweightUser<T,sz>::pool;
 
 /////////////// Example ////
 

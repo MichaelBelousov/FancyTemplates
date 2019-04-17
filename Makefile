@@ -19,7 +19,7 @@ all: _prepare $(OUT)
 $(OUT): $(OBJS)
 	$(CXX) -o $@ $^ $ $(CPPFLAGS)
 
-debug: _debug all
+debug: ultraclean _debug all
 
 _debug:
 	$(eval CPPFLAGS += -g -DDEBUG)
