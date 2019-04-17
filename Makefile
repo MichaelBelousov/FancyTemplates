@@ -15,6 +15,12 @@ all: $(OUT)
 $(OUT): $(OBJS)
 	$(CXX) -o $@ $^ $ $(CPPFLAGS)
 
+debug: _debug all
+
+_debug:
+	$(eval CPPFLAGS += -g -DDEBUG)
+
+
 ###########################################
 
 .PHONY: clean ultraclean
