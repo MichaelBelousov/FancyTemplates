@@ -1,16 +1,20 @@
 CPPC=c++
 CPPFLAGS=--std=c++17
+OPTMZ=-O2
 LDFLAGS=
 LIBS=
 INCLUDES=
 OUT=main
-GARBAGE=*.o
 CPPSRCS=$(wildcard *.cpp)
 OBJS=$(CPPSRCS:.cpp=.o)
+DEPS=$(OBJS:.o=.d)
 
-all: $(OUT)
+all: _prepare $(OUT)
 
 ###########################################
+
+%.d: %.c
+	@$(CPP) $(CFLAGS) $< -MM -MT  $(A:.d=.o) >$@
 
 $(OUT): $(OBJS)
 	$(CXX) -o $@ $^ $ $(CPPFLAGS)
@@ -19,15 +23,18 @@ debug: _debug all
 
 _debug:
 	$(eval CPPFLAGS += -g -DDEBUG)
+	$(eval OPTMZ = -O0)
 
+_prepare:
+	$(eval CPPFLAGS += $(OPTMZ))
 
 ###########################################
 
-.PHONY: clean ultraclean
-
+.PHONY: clean
 clean: 
-	rm -f $(GARBAGE)
+	rm -f $(OBJS) $(DEPS)
 
+.PHONY: ultraclean
 ultraclean: clean
 	rm -f $(OUT)
 
